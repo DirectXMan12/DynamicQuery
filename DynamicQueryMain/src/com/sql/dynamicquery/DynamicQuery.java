@@ -12,7 +12,7 @@ import java.util.LinkedList;
  * @author DirectXMan12
  *
  */
-public class DynamicQuery
+public class DynamicQuery implements SQLConvertable
 {
 	
 	private LinkedList<ITable> _referencedTables;
@@ -128,9 +128,10 @@ public class DynamicQuery
 				sb.append(p.toSql());
 				sb.append(" and ");
 			}
-			sb.delete(sb.length()-5, sb.length()-1);
+			sb.delete(sb.length()-5, sb.length());
 		}
 		
+		//sb.append(";");
 		return sb.toString();
 	}
 	

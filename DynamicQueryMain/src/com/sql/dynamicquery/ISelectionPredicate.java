@@ -9,7 +9,7 @@ import java.util.ArrayList;
  * @author DirectXMan12
  *
  */
-public interface ISelectionPredicate
+public interface ISelectionPredicate extends SQLConvertable
 {
 	public String toSql();
 	

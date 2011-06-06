@@ -5,6 +5,8 @@ package com.sql.dynamicquery.tests;
 
 
 
+import static org.junit.Assert.assertEquals;
+
 import java.lang.reflect.Proxy;
 
 import org.junit.Before;
@@ -46,7 +48,7 @@ public class BasicSqlProductionTest
 		//System.out.println(u.id().getClass().getName());
 		//System.out.println(dq.where(u.getColumn("name").eq("bob")).project().toSql());
 		//System.out.println(u.where(u.getColumn("name").eq("bob").and(u.getColumn("id").eq(33))).project().toSql());
-		System.out.println(u.where(u.name().eq("bob").and( u.id().eq(1) )).project().toSql());
+		assertEquals( "select User.name, User.id from User where User.name = \"bob\" and User.id = 1;",u.where(u.name().eq("bob").and( u.id().eq(1) )).project().toSql());
 	}
 
 }
