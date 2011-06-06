@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ====================================================================== 
+     Jun 5, 2011 1:06:40 PM                                                        
+
+     DyanmicQueryTests    
+     Builds the JUnit Tests for Dynamic Query using javac (b/c need javac internals for code manipulation)
+                   
+     DirectXMan12                                                                
+     ====================================================================== -->
+<project name="DyanmicQueryTests" default="default" basedir="..\..\..\..\..">
+	<property name="src.dir" location="tests" />
+	<property name="build.dir" location="lib" />
+	<property name="processor" value="com.sql.dynamicquery.annotationprocessor.DynamicQueryAnnotationProcessor" />
+	
+	<description>
+            Builds the JUnit Tests for Dynamic Query using javac (b/c need javac internals for code manipulation)
+    </description>
+
+    <!-- ================================= 
+          target: default              
+         ================================= -->
+    <target name="default" depends="clean" description="Builds the JUnit Tests for Dynamic Query using javac (b/c need javac internals for code manipulation)">
+        <javac srcdir="${src.dir}" destdir="${build.dir}">
+        	<compilerarg line="-processor ${processor}"/>
+            <classpath>
+              <pathelement path="${classpath}"/>
+              <pathelement path="C:/Users/DirectXMan12/Eclipse Workspace/PersonalProjects/DynamicQueryCodeManipulator/bin"/>
+              <pathelement path="C:/Users/DirectXMan12/Eclipse Workspace/PersonalProjects/DynamicQueryMain/bin" />
+            </classpath>
+    
+    		<include name="**/User.java"/>
+
+        </javac>
+    </target>
+	<!-- ================================= 
+          target: clean              
+         ================================= -->
+    <target name="clean">
+        <delete dir="lib" includeemptydirs="true" includes="**/*.class"></delete>
+    </target>
+
+
+</project>
