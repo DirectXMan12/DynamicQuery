@@ -1,0 +1,1 @@
+see the tests in DynamicQueryTests for examples and a sample ant build script for a Table definition (note: you *must* use Oracle/Sun Java 6 (possibly 7, haven't tested) to process Table definitions, although for other files any Java 6+-compliant compiler will do)
