@@ -36,7 +36,7 @@
           target: clean              
          ================================= -->
     <target name="clean">
-        <delete dir="lib" includeemptydirs="true" includes="**/*.class"></delete>
+        <delete dir="lib" includeemptydirs="false" includes="**/*.class"></delete>
     </target>
 
 

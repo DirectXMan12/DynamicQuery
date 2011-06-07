@@ -10,7 +10,7 @@ import java.util.Collection;
  * @author DirectXMan12
  *
  */
-public class TableColumn
+public class TableColumn implements SQLConvertable
 {
 	private ITable _parentTable;
 	private String _columnName;
@@ -43,5 +43,10 @@ public class TableColumn
 	public InPredicate in(Collection<?> list)
 	{
 		return new InPredicate(this, list);
+	}
+
+	public String toSql()
+	{
+		return _parentTable.toSql()+"."+_columnName; // TODO: fix this
 	}
 }

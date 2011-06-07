@@ -24,8 +24,8 @@ public class EqualsPredicate extends ChainablePredicate
 	@Override
 	public String toSql()
 	{
-		if (_rhs instanceof Integer) return String.format("%s.%s = %s", TableProxy.getActualLocalName(_lhs.getTable()), _lhs.getName(), _rhs.toString());
-		else return String.format("%s.%s = \"%s\"", TableProxy.getActualLocalName(_lhs.getTable()), _lhs.getName(), _rhs.toString());
+		if (_rhs instanceof Integer) return String.format("%s = %s", _lhs.toSql(), _rhs.toString());
+		else return String.format("%s = \"%s\"", _lhs.toSql(), _rhs.toString());
 	}
 
 	@Override

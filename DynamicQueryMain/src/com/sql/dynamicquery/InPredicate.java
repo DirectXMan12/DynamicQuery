@@ -29,7 +29,7 @@ public class InPredicate extends ChainablePredicate
 	public String toSql()
 	{
 		StringBuilder sb = new StringBuilder();
-		sb.append(String.format("%s.%s in (", TableProxy.getActualLocalName(_lhs.getTable()), _lhs.getName()));
+		sb.append(String.format("%s in (", _lhs.toSql()));
 		if (_rhs instanceof SQLConvertable) sb.append(((SQLConvertable) _rhs).toSql());
 		else
 		{

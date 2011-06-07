@@ -13,7 +13,7 @@ import java.util.HashMap;
  * @author DirectXMan12
  *
  */
-public interface ITable
+public interface ITable extends SQLConvertable
 {
 	public TableColumn[] getColumns();
 	
@@ -26,4 +26,5 @@ public interface ITable
 	public DynamicQuery project(TableColumn[] cl);
 	
 	public Class getActualClass();
+
 }

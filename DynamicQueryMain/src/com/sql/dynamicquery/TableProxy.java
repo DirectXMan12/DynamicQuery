@@ -29,7 +29,7 @@ public class TableProxy implements InvocationHandler {
 	@Override
 	public Object invoke(Object proxy, Method m, Object[] args) throws Throwable
 	{
-		if (Arrays.asList(_tblClass.getMethods()).contains(m) && m.isAnnotationPresent(Column.class))
+		if (Arrays.asList(_tblClass.getMethods()).contains(m) && m.isAnnotationPresent(Column.class) && !m.getName().startsWith("get"))
 		{
 			// this is a column method
 			return new TableColumn((ITable)proxy, _tblClass.getMethod(m.getName()));
@@ -63,7 +63,11 @@ public class TableProxy implements InvocationHandler {
 		}
 		else if (m.getName().equals("where"))
 		{
-			return new DynamicQuery().where((ISelectionPredicate) args[0]);
+			return new DynamicQuery(_tblClass).where((ISelectionPredicate) args[0]);
+		}
+		else if (m.getName().equals("project"))
+		{
+			return new DynamicQuery(_tblClass).project((ITable)proxy);
 		}
 		else if (m.getName().equals("getActualClass"))
 		{
@@ -73,6 +77,10 @@ public class TableProxy implements InvocationHandler {
 		{
 			return _tblClass.getName();
 		}
+		else if (m.getName().equals("toSql"))
+		{
+			return toPlural();
+		}
 		else if (m.getName().equals("equals"))
 		{
 			return isTableEqual(args[0]);
@@ -81,6 +89,13 @@ public class TableProxy implements InvocationHandler {
 		{
 			return null;
 		}
+	}
+	
+	protected String toPlural()
+	{
+		String t = getActualLocalName(_tblClass);
+		t = Character.toLowerCase(t.charAt(0))+t.substring(1);
+		return Inflector.pluralize(t);
 	}
 	
 	public boolean isTableEqual(Object o)
