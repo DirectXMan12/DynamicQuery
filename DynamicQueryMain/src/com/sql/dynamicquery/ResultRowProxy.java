@@ -16,7 +16,7 @@ import java.util.Set;
  * @author DirectXMan12
  *
  */
-public class ResultRowProxy implements InvocationHandler
+public class ResultRowProxy extends DynamicQueryAbstractProxy implements InvocationHandler
 {
 
 	private Set<Class<? extends ITable>> _tblClasses;
@@ -88,27 +88,12 @@ public class ResultRowProxy implements InvocationHandler
 		return null;
 	}
 	
-	private <T extends ITable> T getProxiedInstanceOf(Class<T> c)
-	{
-		return c.cast(Proxy.newProxyInstance(TableProxy.class.getClassLoader(), new Class[] {c}, new TableProxy(c)));
-	}
-	
-	
-	/* (non-Javadoc)
-	 * @see java.lang.reflect.InvocationHandler#invoke(java.lang.Object, java.lang.reflect.Method, java.lang.Object[])
-	 */
 	@Override
-	public Object invoke(Object proxy, Method m, Object[] args) throws Throwable
+	public Object handleInvoke(Object proxy, Method m, String methodName, Object[] args, Class<? extends ITable> primaryClass) throws Exception
 	{
 		if (m.getName().equals("getColumns"))
 		{
 			return new ArrayList<TableColumn>(_rowResults.keySet());
-		}
-		else if (m.isAnnotationPresent(Column.class) && !m.getName().startsWith("get"))
-		{
-			// this is a column method
-			return new TableColumn((ITable)proxy, m);
-			//return new DynamicQuery().project(new TableColumn[] {new TableColumn(((ITable) proxy), m)});
 		}
 		else if (m.isAnnotationPresent(HasMany.class) && !m.getName().startsWith("get"))
 		{
@@ -116,7 +101,7 @@ public class ResultRowProxy implements InvocationHandler
 			Class<? extends ITable> colType;
 			if (!resType.isArray()) colType = (Class<? extends ITable>) resType;
 			else colType = (Class<? extends ITable>) Class.forName(resType.getName().replaceFirst("\\[.", "").replaceFirst(";", ""));
-			TableColumn idCol = ((TableColumn)colType.getMethod(lcFirstLetter(Inflector.singularize(((ITable)proxy).toSql()))+"Id").invoke(getProxiedInstanceOf(colType)));
+			TableColumn idCol = ((TableColumn)colType.getMethod(lcFirstLetter(Inflector.singularize(((ITable)proxy).toSql()))+"Id").invoke(getProxiedInstanceOf(colType, new TableProxy(colType))));
 
 		
 			EqualsPredicate w = idCol.eq((Number)_mainClass.getMethod("getId").invoke(proxy));
@@ -142,7 +127,7 @@ public class ResultRowProxy implements InvocationHandler
 			
 			ITable it = (ITable) args[0];
 			
-			if (!it.toSql().equals(toPlural())) return false; // is the table name equal?
+			if (!it.toSql().equals(toPlural(_mainClass))) return false; // is the table name equal?
 			
 			for (Method meth : it.getActualClass().getMethods()) // are the column values equal?
 			{
@@ -173,30 +158,20 @@ public class ResultRowProxy implements InvocationHandler
 			
 			return sb.toString();
 		}
-		else if (m.getName().equals("toSql"))
-		{
-			return toPlural();
-		}
 		else if (m.getName().equals("getActualClass"))
 		{
 			return _mainClass;
 		}
 		else
 		{
-			throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for query results");
+			return super.handleInvoke(proxy, m, methodName, args, primaryClass);
 		}
 	}
-	
-	public static String lcFirstLetter(String s)
+
+	@Override
+	protected Class<? extends ITable> getPrimaryTableClass()
 	{
-		return Character.toLowerCase(s.charAt(0))+s.substring(1);
-	}
-	
-	protected String toPlural()
-	{
-		String t = TableProxy.getActualLocalName(_mainClass);
-		t = lcFirstLetter(t);
-		return Inflector.pluralize(t);
+		return _mainClass;
 	}
 
 }

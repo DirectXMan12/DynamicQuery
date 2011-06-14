@@ -125,6 +125,8 @@ public class BasicSqlProductionTest
 		
 		Object res[] = q.toArray();
 		System.out.println(res[0]+": "+((User)res[0]).getApps()[0].getName());
+		assertEquals(((User)res[0]).getName(), "testuser1");
+		assertEquals(((User)res[0]).getApps()[0].getName(), "testapp1");
 	}
 	
 	@AfterClass

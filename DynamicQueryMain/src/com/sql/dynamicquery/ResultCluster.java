@@ -19,7 +19,7 @@ import com.sun.tools.javac.util.List;
  * @author DirectXMan12
  *
  */
-public class ResultCluster<T extends ITable> implements InvocationHandler
+public class ResultCluster<T extends ITable> extends DynamicQueryAbstractProxy implements InvocationHandler
 {
 	private Set<ITable> _referencedTables;
 	private T _mainEntry;
@@ -33,11 +33,6 @@ public class ResultCluster<T extends ITable> implements InvocationHandler
 		_referencedTables = referencedTables;
 		_otherValues = new HashMap<ITable, Object>();
 		_mainEntry = currEntry;
-	}
-	
-	private <R extends ITable> R getProxiedInstanceOf(Class<R> c)
-	{
-		return c.cast(Proxy.newProxyInstance(TableProxy.class.getClassLoader(), new Class[] {c}, new TableProxy(c)));
 	}
 	
 	public Class<T> getMainEntryClass()
@@ -80,19 +75,13 @@ public class ResultCluster<T extends ITable> implements InvocationHandler
 		_otherValues.put(entityType, entityInstance);
 		return true;
 	}
-
+	
 	@Override
-	public Object invoke(Object proxy, Method m, Object[] args) throws Throwable
+	public Object handleInvoke(Object proxy, Method m, String methodName, Object[] args, Class<? extends ITable> primaryClass) throws Exception
 	{
 		if (m.getName().equals("getColumns"))
 		{
 			return _mainEntry.getColumns();
-		}
-		else if (m.isAnnotationPresent(Column.class) && !m.getName().startsWith("get"))
-		{
-			// this is a column method
-			return new TableColumn((ITable)proxy, m);
-			//return new DynamicQuery().project(new TableColumn[] {new TableColumn(((ITable) proxy), m)});
 		}
 		else if (m.isAnnotationPresent(HasMany.class) && !m.getName().startsWith("get"))
 		{
@@ -100,7 +89,7 @@ public class ResultCluster<T extends ITable> implements InvocationHandler
 			Class<? extends ITable> colType;
 			if (!resType.isArray()) colType = (Class<? extends ITable>) resType;
 			else colType = (Class<? extends ITable>) Class.forName(resType.getName().replaceFirst("\\[.", "").replaceFirst(";", ""));
-			TableColumn idCol = ((TableColumn)colType.getMethod(lcFirstLetter(Inflector.singularize(((ITable)proxy).toSql()))+"Id").invoke(getProxiedInstanceOf(colType)));
+			TableColumn idCol = ((TableColumn)colType.getMethod(lcFirstLetter(Inflector.singularize(((ITable)proxy).toSql()))+"Id").invoke(getProxiedInstanceOf(colType, new TableProxy(colType))));
 
 		
 			EqualsPredicate w = idCol.eq((Number)_mainEntry.getActualClass().getMethod("getId").invoke(_mainEntry));
@@ -132,7 +121,7 @@ public class ResultCluster<T extends ITable> implements InvocationHandler
 			
 			ITable it = (ITable) args[0];
 			
-			if (!it.toSql().equals(toPlural())) return false; // is the table name equal?
+			if (!it.toSql().equals(toPlural(_mainEntry))) return false; // is the table name equal?
 			
 			for (Method meth : it.getActualClass().getMethods()) // are the column values equal?
 			{
@@ -154,26 +143,16 @@ public class ResultCluster<T extends ITable> implements InvocationHandler
 			
 			return sb.toString();
 		}
-		else if (m.getName().equals("toSql"))
-		{
-			return toPlural();
-		}
 		else
 		{
-			throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for query results");
+			return super.handleInvoke(proxy, m, methodName, args, primaryClass);
 		}
-	}
-	
-	public static String lcFirstLetter(String s)
-	{
-		return Character.toLowerCase(s.charAt(0))+s.substring(1);
-	}
-	
-	protected String toPlural()
-	{
-		String t = TableProxy.getActualLocalName(_mainEntry.getActualClass());
-		t = lcFirstLetter(t);
-		return Inflector.pluralize(t);
+		
 	}
 
+	@Override
+	protected Class<? extends ITable> getPrimaryTableClass()
+	{
+		return _mainEntry.getActualClass();
+	}
 }
