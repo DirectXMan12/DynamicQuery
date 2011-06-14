@@ -56,17 +56,21 @@ public class DynamicQueryAnnotationProcessor extends AbstractProcessor
 			{
 				boolean procThis = false;
 				ArrayList<JCTree> dontProcess = new ArrayList<JCTree>();
+				ArrayList<JCTree> addIdMethods = new ArrayList<JCTree>();
+				ArrayList<JCTree> hasManyMethods = new ArrayList<JCTree>();
 				//_messager.printMessage(Kind.NOTE, "loop hit outer element "+oe.toString());
 				for (Element e : oe.getEnclosedElements())
 				{
 					//_messager.printMessage(Kind.NOTE, "loop hit element "+e.toString());
-					if (e.getAnnotation(com.sql.dynamicquery.Column.class) != null) procThis = true;
+					if (e.getAnnotation(com.sql.dynamicquery.Column.class) != null || e.getAnnotation(com.sql.dynamicquery.HasMany.class) != null || e.getAnnotation(com.sql.dynamicquery.BelongsTo.class) != null) procThis = true;
 					else dontProcess.add((JCTree) Trees.instance(_env).getTree(e));
+					if (e.getAnnotation(com.sql.dynamicquery.BelongsTo.class) != null) addIdMethods.add((JCTree) Trees.instance(_env).getTree(e));
+					if (e.getAnnotation(com.sql.dynamicquery.HasMany.class) != null) hasManyMethods.add((JCTree) Trees.instance(_env).getTree(e));
 				}
 				if (procThis)
 				{
 					JCTree tree = (JCTree) Trees.instance(_env).getTree(oe);
-					TreeTranslator trans = new DynamicQueryTranslator(TreeMaker.instance(_env.getContext()),_messager, Name.Table.instance(_env.getContext()), dontProcess);
+					TreeTranslator trans = new DynamicQueryTranslator(TreeMaker.instance(_env.getContext()),_messager, Name.Table.instance(_env.getContext()), dontProcess, addIdMethods, hasManyMethods);
 					tree.accept(trans);
 					_messager.printMessage(Kind.NOTE, "finished outer elem "+oe.toString());
 				}

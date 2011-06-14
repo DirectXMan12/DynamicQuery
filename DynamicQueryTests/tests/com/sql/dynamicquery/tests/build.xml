@@ -19,7 +19,7 @@
     <!-- ================================= 
           target: default              
          ================================= -->
-    <target name="default" depends="clean" description="Builds the JUnit Tests for Dynamic Query using javac (b/c need javac internals for code manipulation)">
+    <target name="default" description="Builds the JUnit Tests for Dynamic Query using javac (b/c need javac internals for code manipulation)">
         <javac srcdir="${src.dir}" destdir="${build.dir}">
         	<compilerarg line="-processor ${processor}"/>
             <classpath>
@@ -29,6 +29,7 @@
             </classpath>
     
     		<include name="**/User.java"/>
+        	<include name="**/App.java"/>
 
         </javac>
     </target>

@@ -3,6 +3,7 @@
  */
 package com.sql.dynamicquery;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
@@ -10,15 +11,15 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.LinkedBlockingDeque;
-
-import com.sun.org.apache.bcel.internal.util.Class2HTML;
 
 /**
  * @author DirectXMan12
@@ -27,41 +28,47 @@ import com.sun.org.apache.bcel.internal.util.Class2HTML;
 public class DynamicQuery implements SQLConvertable, Collection<ITable>
 {
 	
-	private LinkedList<ITable> _referencedTables;
-	private LinkedList<TableColumn> _referencedCols;
+	private LinkedHashSet<ITable> _referencedTables; // TODO: make some of these sets (referencedTables, etc)?
+	private LinkedHashSet<TableColumn> _referencedCols;
 	private LinkedList<ISelectionPredicate> _whereFilters;
 	private LinkedList<IFilter> _filters;
+	private LinkedHashSet<ITable> _refTablesIgnoreFrom;
 	
 	private Class<? extends ITable> _mainClass;
 	
 	public DynamicQuery()
 	{
-		_referencedTables = new LinkedList<ITable>();
-		_referencedCols = new LinkedList<TableColumn>();
+		_referencedTables = new LinkedHashSet<ITable>();
+		_referencedCols = new LinkedHashSet<TableColumn>();
 		_filters = new LinkedList<IFilter>();
 		_whereFilters = new LinkedList<ISelectionPredicate>();
+		_refTablesIgnoreFrom = new LinkedHashSet<ITable>();
 		
 		_mainClass = null;
 	}
 	
 	public DynamicQuery(DynamicQuery q)
 	{
-		_referencedTables = (LinkedList<ITable>) q.getReferencedTables().clone();
-		_referencedCols = (LinkedList<TableColumn>) q.getReferencedColumns().clone();
+		_referencedTables = (LinkedHashSet<ITable>) q.getReferencedTables().clone();
+		_referencedCols = (LinkedHashSet<TableColumn>) q.getReferencedColumns().clone();
 		_filters = (LinkedList<IFilter>) q.getFilters().clone();
 		_whereFilters = (LinkedList<ISelectionPredicate>) q.getWhereFilters().clone();
+		_refTablesIgnoreFrom = (LinkedHashSet<ITable>) q.getIgnoredReferencedTables().clone();
 		
 		_mainClass = q._mainClass;
 	}
 	
 	public DynamicQuery(Class<? extends ITable> mainClass)
 	{
-		_referencedTables = new LinkedList<ITable>();
-		_referencedCols = new LinkedList<TableColumn>();
+		_referencedTables = new LinkedHashSet<ITable>();
+		_referencedCols = new LinkedHashSet<TableColumn>();
 		_filters = new LinkedList<IFilter>();
 		_whereFilters = new LinkedList<ISelectionPredicate>();
+		_refTablesIgnoreFrom = new LinkedHashSet<ITable>();
 		
 		_mainClass = mainClass;
+		ITable tbl = proxyInstanceOf(_mainClass, new TableProxy(_mainClass));
+		_referencedTables.add(tbl);
 	}
 	
 	public DynamicQuery project()
@@ -99,11 +106,31 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return q;
 	}
 	
+	public DynamicQuery join(ITable it)
+	{
+		DynamicQuery q = new DynamicQuery(this);
+		
+		q.addReferencedTables(Arrays.asList(it));
+		q.addIgnoredReferencedTable(Arrays.asList(it));
+		q.addFilter(new JoinFilter(it));
+		return q;
+	}
+	
+	public DynamicQuery on(ISelectionPredicate p)
+	{
+		IFilter lastFilter = _filters.getLast();
+		if (!(lastFilter instanceof JoinFilter)) throw new RuntimeException("Error: previous operation wasn't a join");
+		
+		DynamicQuery q = new DynamicQuery(this);
+		JoinFilter lastJoin = (JoinFilter) q._filters.getLast();
+		lastJoin.on(p);
+		return q;
+	}
+	
 	public DynamicQuery where(ISelectionPredicate p)
 	{	
-		addReferencedTables(p.referencedTables());
-	
 		DynamicQuery q = new DynamicQuery(this);
+		q.addReferencedTables(p.referencedTables());
 		
 		q.addWhereFilter(p);
 		
@@ -118,15 +145,28 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return q;
 	}
 	
-	private void addReferencedTables(ArrayList<ITable> tl)
+	private void addReferencedTables(List<ITable> tl)
 	{
-		Iterator<ITable> iter = tl.iterator();
+		/*Iterator<ITable> iter = tl.iterator();
 		ITable i;	
 		while(iter.hasNext())
 		{
 			i = iter.next();
 			if (!_referencedTables.contains(i)) _referencedTables.add(i);
-		}
+		}*/
+		_referencedTables.addAll(tl);
+	}
+	
+	private void addIgnoredReferencedTable(List<ITable> tl)
+	{
+		/*Iterator<ITable> iter = tl.iterator();
+		ITable i;	
+		while(iter.hasNext())
+		{
+			i = iter.next();
+			if (!_refTablesIgnoreFrom.contains(i)) _refTablesIgnoreFrom.add(i);
+		}*/
+		_refTablesIgnoreFrom.addAll(tl);
 	}
 	
 	public String toSql()
@@ -144,6 +184,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		
 		for (ITable t : _referencedTables)
 		{
+			if (_refTablesIgnoreFrom.contains(t)) continue;
 			sb.append(t.toSql());
 			sb.append(", ");
 		}
@@ -175,12 +216,12 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return sb.toString();
 	}
 	
-	private LinkedList<ITable> getReferencedTables()
+	private LinkedHashSet<ITable> getReferencedTables()
 	{
 		return _referencedTables;
 	}
 	
-	private LinkedList<TableColumn> getReferencedColumns()
+	private LinkedHashSet<TableColumn> getReferencedColumns()
 	{
 		return _referencedCols;
 	}
@@ -193,6 +234,11 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	private LinkedList<ISelectionPredicate> getWhereFilters()
 	{
 		return _whereFilters;
+	}
+	
+	private LinkedHashSet<ITable> getIgnoredReferencedTables()
+	{
+		return _refTablesIgnoreFrom;
 	}
 	
 	private void addColumn(TableColumn col)
@@ -211,11 +257,16 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		_whereFilters.add(p);
 	}
  
-	private LinkedBlockingDeque<ITable> _results = null;
+	private LinkedBlockingDeque<ResultCluster> _results = null;
+	
+	public static <T extends ITable> T proxyInstanceOf(Class<T> tblClass, InvocationHandler proxyClassInstance)
+	{
+		return tblClass.cast( Proxy.newProxyInstance(proxyClassInstance.getClass().getClassLoader(), new Class[] {tblClass}, proxyClassInstance));
+	}
 	
 	protected void executeQuery()
 	{
-		_results = new LinkedBlockingDeque<ITable>(); 
+		_results = new LinkedBlockingDeque<ResultCluster>(); 
 		
 		// TODO: make this conform to some sort of global config
 		Connection conn = null;
@@ -238,6 +289,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	    
 		try
 		{
+			HashMap<Integer, ResultCluster> groupedRes = new HashMap<Integer, ResultCluster>();
 			while(rs.next())
 			{	
 				HashMap<String, Object> cols = new HashMap<String, Object>();
@@ -247,11 +299,36 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 					cols.put(rs.getMetaData().getTableName(i).toLowerCase()+"."+rs.getMetaData().getColumnName(i).toLowerCase(), rs.getObject(i));
 				}
 				
-				//ITable it;
-				//if (_mainClass != null) it = _mainClass.cast( Proxy.newProxyInstance(ResultRowProxy.class.getClassLoader(), new Class[] {_mainClass}, new ResultRowProxy(getReferencedColumns(), cols, _mainClass)) );
-				//else  it = (ITable) Proxy.newProxyInstance(ResultRowProxy.class.getClassLoader(), new Class[] {ITable.class}, new ResultRowProxy(getReferencedColumns(), cols, null));
+				String mainClassName = proxyInstanceOf(_mainClass, new TableProxy(_mainClass)).toSql();
+				int mainKey = (Integer) cols.get(mainClassName+"."+"id");
+				if (!groupedRes.containsKey(mainKey))
+				{
+					// create new entry
+					ResultCluster rc = new ResultCluster(getReferencedTables(), proxyInstanceOf(_mainClass, new ResultRowProxy(getReferencedColumns(), cols, _mainClass)));
+					groupedRes.put(mainKey, rc);
+				}
+				ResultCluster cl = groupedRes.get(mainKey);
 				
-				_results.add(_mainClass.cast( Proxy.newProxyInstance(ResultRowProxy.class.getClassLoader(), new Class[] {_mainClass}, new ResultRowProxy(getReferencedColumns(), cols, _mainClass)) ));
+				for(Method m : _mainClass.getMethods())
+				{
+					if (m.isAnnotationPresent(HasMany.class) && !m.getName().startsWith("get")) // || m.isAnnotationPresent(HasOne.class) || m.isAnnotationPresent(BelongsTo.class) -- TODO: figure out how to work BelongsTo into this
+					{
+						Class<?> retType = _mainClass.getMethod("get"+TableProxy.ucFirstLetter(Inflector.pluralize(m.getName()))).getReturnType();
+						Class<? extends ITable> retClass;
+						if (retType.isArray()) retClass = (Class<? extends ITable>) Class.forName(retType.getName().replaceFirst("\\[.", "").replaceFirst(";", ""));
+						else retClass = (Class<? extends ITable>) retType;
+						ITable inst = proxyInstanceOf(retClass, new TableProxy(retClass));
+						
+						if (retType.isArray()) cl.putInList(inst, proxyInstanceOf(retClass, new ResultRowProxy(getReferencedColumns(), cols, retClass))); // TODO: implement for deeper nesting(i.e. lists of resultclusters)
+						else cl.putAsSingleton(inst, proxyInstanceOf(retClass, new ResultRowProxy(getReferencedColumns(), cols, retClass)));
+					}
+				}
+				//groupedRes.put(mainKey, cl); // TODO: figgure out if this is actually needed (shouldn't be, b/c Java passes by ref)
+			}
+			
+			for (ResultCluster rc : groupedRes.values())
+			{
+				_results.put(rc);
 			}
 		}
 		catch (IllegalArgumentException e)
@@ -261,6 +338,18 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		}
 		catch (SQLException e)
 		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchMethodException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
@@ -274,7 +363,22 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	
 	protected LinkedBlockingDeque<ITable> getResults()
 	{
-		return _results;
+		if (_results.size() == 0) return new LinkedBlockingDeque<ITable>();
+		LinkedBlockingDeque<ITable> res = new LinkedBlockingDeque<ITable>(_results.size());
+		try
+		{
+			for (ResultCluster rc : _results)
+			{
+				res.put(proxyInstanceOf(rc.getMainEntryClass(), rc));
+			}
+		}
+		catch (InterruptedException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return res;
 	}
 	
 	public int getCount()
@@ -302,21 +406,21 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	public boolean contains(Object o)
 	{
 		if (_results == null) executeQuery();
-		return _results.contains(o);
+		return getResults().contains(o);
 	}
 
 	@Override
 	public Iterator<ITable> iterator()
 	{
 		executeQuery();
-		return _results.iterator(); // TODO: make this better - specifically tailored to given top-level class?
+		return getResults().iterator(); // TODO: make this better - specifically tailored to given top-level class?
 	}
 
 	@Override
 	public Object[] toArray()
 	{
 		executeQuery();
-		return _results.toArray();
+		return getResults().toArray();
 	}
 
 	@Override

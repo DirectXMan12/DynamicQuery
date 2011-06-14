@@ -3,7 +3,6 @@
  */
 package com.sql.dynamicquery;
 
-import java.util.LinkedList;
 
 /**
  * @author DirectXMan12

@@ -25,6 +25,7 @@ public class EqualsPredicate extends ChainablePredicate
 	public String toSql()
 	{
 		if (_rhs instanceof Integer) return String.format("%s = %s", _lhs.toSql(), _rhs.toString());
+		else if (_rhs instanceof SQLConvertable) return String.format("%s = %s", _lhs.toSql(), ((SQLConvertable) _rhs).toSql());
 		else return String.format("%s = \"%s\"", _lhs.toSql(), _rhs.toString());
 	}
 

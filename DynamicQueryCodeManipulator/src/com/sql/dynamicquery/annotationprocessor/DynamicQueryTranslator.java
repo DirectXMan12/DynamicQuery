@@ -10,16 +10,10 @@ import javax.annotation.processing.Messager;
 import javax.tools.Diagnostic.Kind;
 
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
-import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
-import com.sun.tools.javac.tree.JCTree.JCTypeParameter;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.List;
@@ -36,8 +30,10 @@ public class DynamicQueryTranslator extends TreeTranslator
 	private Name.Table _names;
 	public ArrayList<JCTree> voidRes;
 	public ArrayList<JCTree> dontProcess;
+	public ArrayList<JCTree> addIdMethods;
+	public ArrayList<JCTree> hasManyMethods;
 	
-	public DynamicQueryTranslator(TreeMaker m, Messager msgr, Name.Table names, ArrayList<JCTree> dp)
+	public DynamicQueryTranslator(TreeMaker m, Messager msgr, Name.Table names, ArrayList<JCTree> dp, ArrayList<JCTree> aidm, ArrayList<JCTree> hmm)
 	{
 		super();
 		_make = m;
@@ -45,6 +41,8 @@ public class DynamicQueryTranslator extends TreeTranslator
 		_names = names;
 		dontProcess = dp;
 		voidRes = new ArrayList<JCTree>();
+		addIdMethods = aidm;
+		hasManyMethods = hmm;
 	}
 
 	
@@ -72,8 +70,7 @@ public class DynamicQueryTranslator extends TreeTranslator
 		((JCClassDecl)this.result).defs = List.from(defsAL.toArray(new JCTree[] {}));
 		//this.result = newClass;
 	}
-
-
+	
 	@Override
 	public void visitMethodDef(JCMethodDecl methDecl)
 	{
@@ -93,10 +90,18 @@ public class DynamicQueryTranslator extends TreeTranslator
 		}
 		else _messager.printMessage(Kind.NOTE, "--> processing method def " + methDecl.getName().toString() + "...");
 		JCTree newGetter = genGetter(methDecl);
-		JCTree newVoid = makeTypeVoid(methDecl);
+
+		
+		if (addIdMethods.contains(methDecl))
+		{
+			this.voidRes.add(makeIdMethod(methDecl));
+			this.voidRes.add(makeIdGetter(methDecl));
+		}
+		
+		if (hasManyMethods.contains(methDecl)) this.voidRes.add(makeDQMethod(methDecl));
+		else this.voidRes.add(makeTypeVoid(methDecl));
 		
 		this.result = newGetter;
-		this.voidRes.add(newVoid);
 	}
 	
 	// gain access to JCPrimativeTypeTree, whose constructor is protected
@@ -155,6 +160,46 @@ public class DynamicQueryTranslator extends TreeTranslator
 		newMd.name = newName;
 		
 		
+		return newMd;
+	}
+	
+	private JCTree makeIdMethod(JCMethodDecl md)
+	{
+		JCMethodDecl newMd = (JCMethodDecl) md.clone();
+		
+		newMd.restype = new MyIdent(_names.fromString("TableColumn"), null);
+		
+		String oldName = md.getName().toString();
+		Name newName = Name.fromString(md.getName().table, oldName+"Id");
+		
+		newMd.name = newName;
+		
+		newMd.setPos(newMd.pos+1);
+		
+		return newMd;
+	}
+	
+	private JCTree makeIdGetter(JCMethodDecl md)
+	{
+		String oldName = md.getName().toString();
+		oldName = Character.toUpperCase(oldName.charAt(0))+oldName.substring(1); // capitalize first letter
+		Name newName = Name.fromString(md.getName().table, "get"+oldName+"Id");
+		
+		JCMethodDecl newMd = (JCMethodDecl) md.clone();
+		
+		newMd.name = newName;
+		newMd.restype = new MyIdent(_names.fromString("Integer"), null); // Assume int, TODO: change maybe to not just assume int?
+		
+		return newMd;
+	}
+	
+	private JCTree makeDQMethod(JCMethodDecl md)
+	{
+		JCMethodDecl newMd = (JCMethodDecl) md.clone();
+
+		
+		newMd.restype = new MyIdent(_names.fromString("DynamicQuery"), null);
+		newMd.setPos(newMd.pos+1);
 		return newMd;
 	}
 }

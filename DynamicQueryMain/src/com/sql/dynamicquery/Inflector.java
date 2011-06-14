@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.sun.tools.javac.util.Pair;
+
 /**
  * @author DirectXMan12
  *
@@ -17,17 +19,19 @@ public class Inflector
 	
 	private HashMap<Pattern, String> _singulars;
 	private HashMap<Pattern, String> _plurals;
+	private Pair<Pattern, String> _defaultPlural1;
+	private Pair<Pattern, String> _defaultPlural2;
 	
 	private Inflector()
 	{
 		_singulars = new HashMap<Pattern, String>();
 		_plurals = new HashMap<Pattern, String>();
+		_defaultPlural2 = new Pair<Pattern, String>(Pattern.compile("$", Pattern.CASE_INSENSITIVE), "s");
+		_defaultPlural1 = new Pair<Pattern, String>(Pattern.compile("s$", Pattern.CASE_INSENSITIVE), "s");
 		
 		// from Rails 3
 		
 		// populate plurals
-		 _plurals.put(Pattern.compile("$", Pattern.CASE_INSENSITIVE), "s");
-		 _plurals.put(Pattern.compile("s$", Pattern.CASE_INSENSITIVE), "s");
 		 _plurals.put(Pattern.compile("(ax|test)is$", Pattern.CASE_INSENSITIVE), "\\1es");
 		 _plurals.put(Pattern.compile("(octop|vir)us$", Pattern.CASE_INSENSITIVE), "\\1i");
 		 _plurals.put(Pattern.compile("(octop|vir)i$", Pattern.CASE_INSENSITIVE), "\\1i");
@@ -136,7 +140,11 @@ public class Inflector
 			if (m.find()) return m.replaceAll(i._plurals.get(p));
 		}
 		
-		return word+"s";
+		Matcher m1 = i._defaultPlural1.fst.matcher(word);
+		Matcher m2 = i._defaultPlural2.fst.matcher(word);
+		
+		if (m1.find()) return m1.replaceAll(i._defaultPlural1.snd);
+		else return m2.replaceAll(i._defaultPlural2.snd);
 	}
 	
 	public static String singularize(String word)

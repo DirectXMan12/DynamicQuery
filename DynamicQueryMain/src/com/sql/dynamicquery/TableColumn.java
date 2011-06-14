@@ -30,7 +30,12 @@ public class TableColumn implements SQLConvertable
 	public ITable getTable() { return _parentTable; }
 	public String getName() { return _columnName; }
 	
-	public EqualsPredicate eq(int val)
+	public EqualsPredicate eq(Number val)
+	{
+		return new EqualsPredicate(this, val);
+	}
+	
+	public EqualsPredicate eq(SQLConvertable val)
 	{
 		return new EqualsPredicate(this, val);
 	}

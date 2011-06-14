@@ -10,4 +10,7 @@ public interface User extends ITable
 	@Column
 	public String name();
 
+	@HasMany
+	public App[] apps();
+
 }
