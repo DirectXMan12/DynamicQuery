@@ -1,1 +1,16 @@
-see the tests in DynamicQueryTests for examples and a sample ant build script for a Table definition (note: you *must* use Oracle/Sun Java 6 (possibly 7, haven't tested) to process Table definitions, although for other files any Java 6+-compliant compiler will do)
+h1. Some Notes
+
+See the tests in DynamicQueryTests for examples and a sample ant build script for a Table definition (note: you *must* use Oracle/Sun Java 6 (possibly 7, haven't tested) to process Table definitions, although for other files any Java 6+-compliant compiler will do)
+
+h1. Brief Example
+
+assume we have an instance of the users table, User u, (see the tests in the test project for an example of how to get an instance; subject to becoming easier), as well as an instance of the apps table, App a.
+
+// Query is initialized here, but not run
+// this query is equivalent to
+// "select [all columns, not actually *] from users join apps on apps.id = users.id"
+DynamicQuery q = u.join(a).on(a.id().eq(u.id())).project();
+
+// since DynamicQuery implements Collection<ITable>, you can loop
+// through results, which aren't run until you actually go to do the loop
+for (ITable it : q) System.out.println( ((User)it).getApps()[0].getName() );
