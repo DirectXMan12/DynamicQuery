@@ -6,7 +6,7 @@ h1. Brief Example
 
 assume we have an instance of the users table, User u, (see the tests in the test project for an example of how to get an instance; subject to becoming easier), as well as an instance of the apps table, App a.
 
-// Query is initialized here, but not run
+bc.. // Query is initialized here, but not run
 // this query is equivalent to
 // "select [all columns, not actually *] from users join apps on apps.id = users.id"
 DynamicQuery q = u.join(a).on(a.id().eq(u.id())).project();
