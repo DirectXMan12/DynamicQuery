@@ -12,5 +12,9 @@ public interface User extends ITable
 
 	@HasMany
 	public App[] apps();
+	
+	public String getSomeCheese();
+	
+	public String nameAndId();
 
 }

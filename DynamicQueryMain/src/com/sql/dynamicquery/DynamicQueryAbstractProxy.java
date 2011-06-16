@@ -4,8 +4,11 @@
 package com.sql.dynamicquery;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import com.sql.dynamicquery.OrderByFilter.DIRECTION;
 
@@ -93,7 +96,46 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 		}
 		else
 		{
-			throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for "+this.getClass().getName());
+			try
+			{
+				Class<?> methodDefClass = Class.forName(primaryClass.getPackage().getName()+"."+ucFirstLetter(getActualLocalName(primaryClass))+"MethodDefinitions");
+			
+				ArrayList<Class> argTypes = null;
+				if (args != null && args.length > 0)
+				{
+					argTypes = new ArrayList<Class>(args.length+1);
+					argTypes.add(ITable.class);
+					for (Object a : args) argTypes.add(a.getClass());
+				}
+				else
+				{
+					argTypes = new ArrayList<Class>(Arrays.asList(ITable.class));
+				}
+				
+				Method m2 = methodDefClass.getMethod(methodName, argTypes.toArray(new Class[] {}));
+				if (this instanceof TableProxy && m2.isAnnotationPresent(AfterResultsOnly.class)) throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for "+this.getClass().getName());
+				
+				ArrayList<Object> newArgs = null;
+				if (args != null && args.length > 0)
+				{
+					newArgs = new ArrayList<Object>(Arrays.asList(args));
+					newArgs.add(0, (ITable)proxy);
+				}
+				else newArgs = new ArrayList<Object>(Arrays.asList( (ITable)proxy )); 
+				return m2.invoke(null, newArgs.toArray());
+			}
+			catch (NoSuchMethodException ex)
+			{
+				throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for "+this.getClass().getName());
+			}
+			catch (SecurityException ex)
+			{
+				throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for "+this.getClass().getName());
+			}
+			catch (ClassNotFoundException ex)
+			{
+				throw new UnsupportedOperationException("method "+m.getName()+" is not implemented for "+this.getClass().getName());
+			}
 		}
 	}
 	

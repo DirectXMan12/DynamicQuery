@@ -24,8 +24,8 @@
         	<compilerarg line="-processor ${processor}"/>
             <classpath>
               <pathelement path="${classpath}"/>
-              <pathelement path="C:/Users/DirectXMan12/Eclipse Workspace/PersonalProjects/DynamicQueryCodeManipulator/bin"/>
-              <pathelement path="C:/Users/DirectXMan12/Eclipse Workspace/PersonalProjects/DynamicQueryMain/bin" />
+              <pathelement path="C:/Users/DirectXMan12/Eclipse Workspace/DynamicQuery/DynamicQueryCodeManipulator/bin"/>
+              <pathelement path="C:/Users/DirectXMan12/Eclipse Workspace/DynamicQuery/DynamicQueryMain/bin" />
             </classpath>
     
     		<include name="**/User.java"/>
