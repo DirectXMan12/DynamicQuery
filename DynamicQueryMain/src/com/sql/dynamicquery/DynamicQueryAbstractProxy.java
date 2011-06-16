@@ -7,6 +7,8 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
+import com.sql.dynamicquery.OrderByFilter.DIRECTION;
+
 /**
  * @author DirectXMan12
  *
@@ -61,7 +63,7 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 	 */
 	public Object handleInvoke(Object proxy, Method m, String methodName, Object[] args, Class<? extends ITable> primaryClass) throws Exception
 	{
-		if (m.getName().equals("toSql"))
+		if (methodName.equals("toSql"))
 		{
 			return toPlural(primaryClass);
 		}
@@ -69,17 +71,25 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 		{
 			return genTableColumn(proxy, m, args, primaryClass);
 		}
-		else if (m.getName().equals("where"))
+		else if (methodName.equals("where"))
 		{
 			return new DynamicQuery(primaryClass).where((ISelectionPredicate) args[0]);
 		}
-		else if (m.getName().equals("project"))
+		else if (methodName.equals("project"))
 		{
 			return new DynamicQuery(primaryClass).project();
 		}
-		else if (m.getName().equals("join"))
+		else if (methodName.equals("join"))
 		{
 			return new DynamicQuery(primaryClass).join((ITable) args[0]);
+		}
+		else if (methodName.equals("order"))
+		{
+			return new DynamicQuery(primaryClass).order((TableColumn) args[0], (DIRECTION) args[1]);
+		}
+		else if (methodName.equals("group"))
+		{
+			return new DynamicQuery(primaryClass).group((TableColumn) args[0]);
 		}
 		else
 		{
@@ -109,8 +119,18 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 	{
 		final int prime = 31;
 		int result = 1;
-		result = prime * result
-				+ ((getPrimaryTableClass() == null) ? 0 : getPrimaryTableClass().hashCode());
+		result = prime * result + ((getPrimaryTableClass() == null) ? 0 : getPrimaryTableClass().hashCode());
 		return result;
 	}
+	
+	public static String getActualLocalName(ITable t)
+	{
+		return t.getActualClass().getName().replaceAll(t.getActualClass().getPackage().getName()+".", "");
+	}
+	
+	public static String getActualLocalName(Class<?> t)
+	{
+		return t.getName().replaceAll(t.getPackage().getName()+".", "");
+	}
+
 }

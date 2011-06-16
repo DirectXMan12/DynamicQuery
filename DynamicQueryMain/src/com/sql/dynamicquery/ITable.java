@@ -18,9 +18,15 @@ public interface ITable extends SQLConvertable
 	
 	public DynamicQuery join(ITable it);
 	
+	public DynamicQuery group(TableColumn col);
+	
+	public DynamicQuery order(TableColumn col, OrderByFilter.DIRECTION dir);
+	
 	public DynamicQuery project();
 	
-	public DynamicQuery project(TableColumn[] cl);
+	public DynamicQuery project(TableColumn... cols);
+	
+	public Integer getCount(TableColumn col);
 	
 	public Class getActualClass();
 

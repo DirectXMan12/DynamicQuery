@@ -33,5 +33,4 @@ public class JoinFilter implements IFilter
 	{
 		return String.format("join %s on %s", _newTable.toSql(), _onPart.toSql());
 	}
-
 }

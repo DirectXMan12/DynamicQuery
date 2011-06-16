@@ -13,6 +13,8 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import sun.security.action.GetLongAction;
+
 import com.sun.tools.javac.util.List;
 
 /**
@@ -112,7 +114,12 @@ public class ResultCluster<T extends ITable> extends DynamicQueryAbstractProxy i
 		}
 		else if (m.isAnnotationPresent(BelongsTo.class) && !m.getName().startsWith("get"))
 		{
-			// TODO: implement
+			// TODO: implement non-get BelongsTo in ResultCluster
+			return null;
+		}
+		else if (m.isAnnotationPresent(BelongsTo.class) && m.getName().startsWith("get"))
+		{
+			// TODO: implement get BelongsTo in ResultCluster
 			return null;
 		}
 		else if (m.getName().equals("equals"))
@@ -137,8 +144,36 @@ public class ResultCluster<T extends ITable> extends DynamicQueryAbstractProxy i
 		else if (m.getName().equals("toString"))
 		{
 			StringBuilder sb = new StringBuilder();
-			sb.append("ResultCluster(ITable Proxy): [");
-			// TODO: fill in this info
+			sb.append("ResultCluster(ITable Proxy): [(main entry: ");
+			sb.append(_mainEntry.toSql());
+			sb.append(") ");
+			for (TableColumn c : _mainEntry.getColumns())
+			{
+				if (c.getTable() != null && !c.getTable().equals(_mainEntry)) continue;
+				sb.append(c.toSql());
+				sb.append(" = ");
+				if (c instanceof IAggregateColumn)
+				{
+					String methName = "get"+getActualLocalName(c.getClass()).replace("Column", "");
+					sb.append(ITable.class.getMethod(methName, TableColumn.class).invoke(_mainEntry, c));
+				}
+				else
+				{
+					String methName = "get"+ucFirstLetter(c.getName());
+					sb.append(_mainEntry.getActualClass().getMethod(methName).invoke(_mainEntry));
+				}
+				sb.append(", ");
+			}
+			sb.replace(sb.length()-2, sb.length(), "");
+			sb.append("], [(nested types) ");
+			for (ITable tbl : _otherValues.keySet())
+			{
+				sb.append(tbl.toSql());
+				sb.append(" = ");
+				sb.append(_otherValues.get(tbl).getClass());
+				sb.append(", ");
+			}
+			sb.replace(sb.length()-2, sb.length(), "");
 			sb.append("]");
 			
 			return sb.toString();

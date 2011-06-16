@@ -26,23 +26,9 @@ public class TableProxy extends DynamicQueryAbstractProxy implements InvocationH
 	@Override
 	public Object handleInvoke(Object proxy, Method m, String methodName, Object[] args, Class<? extends ITable> primaryClass) throws Exception
 	{
-		if (m.isAnnotationPresent(HasMany.class) && !m.getName().startsWith("get"))
-		{
-			// TODO: implement
-			return null;
-		}
-		else if (m.isAnnotationPresent(HasMany.class) && m.getName().startsWith("get") && Arrays.asList(_tblClass.getMethods()).contains(m))
-		{
-			// TODO: implement
-			return null;
-		}
-		else if (m.isAnnotationPresent(BelongsTo.class) && m.getName().endsWith("Id") && !m.getName().startsWith("get"))
+		if (m.isAnnotationPresent(BelongsTo.class) && m.getName().endsWith("Id") && !m.getName().startsWith("get"))
 		{
 			return new TableColumn((ITable)proxy, _tblClass.getMethod(m.getName()));
-		}
-		else if (m.isAnnotationPresent(BelongsTo.class) && !m.getName().startsWith("get"))
-		{
-			throw new UnsupportedOperationException("You haven't specified a single object instance yet!");
 		}
 		else if (m.getName().equals("getColumn"))
 		{
@@ -80,17 +66,6 @@ public class TableProxy extends DynamicQueryAbstractProxy implements InvocationH
 			return super.handleInvoke(proxy, m, methodName, args, primaryClass);
 		}
 	}
-	
-	public static String getActualLocalName(ITable t)
-	{
-		return t.getActualClass().getName().replaceAll(t.getActualClass().getPackage().getName()+".", "");
-	}
-	
-	public static String getActualLocalName(Class<?> t)
-	{
-		return t.getName().replaceAll(t.getPackage().getName()+".", "");
-	}
-
 
 	@Override
 	protected Class<? extends ITable> getPrimaryTableClass()

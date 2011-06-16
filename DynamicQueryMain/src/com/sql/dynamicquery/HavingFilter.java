@@ -3,24 +3,27 @@
  */
 package com.sql.dynamicquery;
 
-
 /**
  * @author DirectXMan12
  *
  */
-public class WhereFilter implements IFilter, IGroupedClause
+public class HavingFilter implements IFilter, IGroupedClause
 {
+
 	private ISelectionPredicate _pred;
 	
-	public WhereFilter(ISelectionPredicate p)
+	public HavingFilter(ISelectionPredicate p)
 	{
 		_pred = p;
 	}
-
+	
+	/* (non-Javadoc)
+	 * @see com.sql.dynamicquery.IFilter#toSql()
+	 */
 	@Override
 	public String toSql()
 	{
-		return String.format("where %s", _pred.toSql());
+		return String.format("having %", _pred.toSql());
 	}
 	
 	public ISelectionPredicate getPredicate()
@@ -31,8 +34,7 @@ public class WhereFilter implements IFilter, IGroupedClause
 	@Override
 	public String getKeyword()
 	{
-		return "where";
+		return "having";
 	}
-	
-	
+
 }

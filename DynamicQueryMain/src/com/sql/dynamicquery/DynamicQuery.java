@@ -9,6 +9,7 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
@@ -21,6 +22,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import com.sun.org.apache.bcel.internal.generic.NEW;
+
 /**
  * @author DirectXMan12
  *
@@ -28,9 +31,11 @@ import java.util.concurrent.LinkedBlockingDeque;
 public class DynamicQuery implements SQLConvertable, Collection<ITable>
 {
 	
-	private LinkedHashSet<ITable> _referencedTables; // TODO: make some of these sets (referencedTables, etc)?
+	private LinkedHashSet<ITable> _referencedTables;
 	private LinkedHashSet<TableColumn> _referencedCols;
 	private LinkedList<ISelectionPredicate> _whereFilters;
+	private LinkedList<OrderByFilter> _orderFilters;
+	private LinkedList<ISelectionPredicate> _havingFilters;
 	private LinkedList<IFilter> _filters;
 	private LinkedHashSet<ITable> _refTablesIgnoreFrom;
 	
@@ -43,6 +48,8 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		_filters = new LinkedList<IFilter>();
 		_whereFilters = new LinkedList<ISelectionPredicate>();
 		_refTablesIgnoreFrom = new LinkedHashSet<ITable>();
+		_orderFilters = new LinkedList<OrderByFilter>();
+		_havingFilters = new LinkedList<ISelectionPredicate>();
 		
 		_mainClass = null;
 	}
@@ -54,6 +61,8 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		_filters = (LinkedList<IFilter>) q.getFilters().clone();
 		_whereFilters = (LinkedList<ISelectionPredicate>) q.getWhereFilters().clone();
 		_refTablesIgnoreFrom = (LinkedHashSet<ITable>) q.getIgnoredReferencedTables().clone();
+		_orderFilters = (LinkedList<OrderByFilter>) q.getOrderFilters();
+		_havingFilters = (LinkedList<ISelectionPredicate>) q.getHavingFilters();
 		
 		_mainClass = q._mainClass;
 	}
@@ -65,6 +74,8 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		_filters = new LinkedList<IFilter>();
 		_whereFilters = new LinkedList<ISelectionPredicate>();
 		_refTablesIgnoreFrom = new LinkedHashSet<ITable>();
+		_orderFilters = new LinkedList<OrderByFilter>();
+		_havingFilters = new LinkedList<ISelectionPredicate>();
 		
 		_mainClass = mainClass;
 		ITable tbl = proxyInstanceOf(_mainClass, new TableProxy(_mainClass));
@@ -78,7 +89,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		{
 			for(Method m : t.getActualClass().getMethods())
 			{
-				if(m.isAnnotationPresent(Column.class) && !m.getName().startsWith("get"))
+				if((m.isAnnotationPresent(Column.class) || (m.isAnnotationPresent(BelongsTo.class) && m.getName().endsWith("Id"))) && !m.getName().startsWith("get")) // TODO: fix so includes id columns from BelongsTo
 				{
 					q.addColumn(new TableColumn(t,m));
 				}
@@ -94,11 +105,11 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return project();
 	}
 	
-	public DynamicQuery project(TableColumn col[])
+	public DynamicQuery project(TableColumn... cols)
 	{
 		DynamicQuery q = new DynamicQuery(this);
 		
-		for (TableColumn t : col)
+		for (TableColumn t : cols)
 		{
 			q.addColumn(t);
 		}
@@ -137,6 +148,30 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return q;
 	}
 	
+	public DynamicQuery group(TableColumn col)
+	{
+		DynamicQuery q = new DynamicQuery(this);
+		q.addFilter(new GroupByFilter(col));
+		
+		return q;
+	}
+	
+	public DynamicQuery order(TableColumn col, OrderByFilter.DIRECTION dir)
+	{
+		DynamicQuery q = new DynamicQuery(this);
+		q.addOrderFilter(col, dir);
+		
+		return q;
+	}
+	
+	public DynamicQuery having(ISelectionPredicate p)
+	{
+		DynamicQuery q = new DynamicQuery(this);
+		q.addHavingFilter(p);
+		
+		return q;
+	}
+	
 	public DynamicQuery count()
 	{
 		DynamicQuery q = new DynamicQuery(this);
@@ -169,13 +204,28 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		_refTablesIgnoreFrom.addAll(tl);
 	}
 	
+	public boolean isGroupingOrAggregateColumn(TableColumn c)
+	{
+		if (c instanceof IAggregateColumn) return true;
+		
+		for (IFilter f : _filters)
+		{
+			if (!(f instanceof GroupByFilter)) continue;
+			Boolean b = ((GroupByFilter)f).getReferencedColumns().contains(c);
+			if ( b ) return true;
+		}
+		
+		return false;
+	}
+	
 	public String toSql()
 	{
 		StringBuilder sb = new StringBuilder();
 		sb.append("select ");
 		for (TableColumn c : _referencedCols)
 		{
-			sb.append(c.toSql());
+			if (_havingFilters.size() > 0 && !isGroupingOrAggregateColumn(c)) continue;
+			sb.append(c.toDefinitionSql());
 			sb.append(", ");
 		}
 		sb.delete(sb.length()-2, sb.length()-1);
@@ -202,7 +252,9 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		
 		if(_whereFilters.size() > 0)
 		{
-			sb.append("where ");
+			//sb.append("where ");
+			sb.append(new WhereFilter(null).getKeyword());
+			sb.append(" ");
 			
 			for (ISelectionPredicate p : _whereFilters)
 			{
@@ -210,6 +262,34 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 				sb.append(" and ");
 			}
 			sb.delete(sb.length()-5, sb.length());
+		}
+		
+		if (_havingFilters.size() > 0)
+		{
+			//sb.append("having ");
+			sb.append(new HavingFilter(null).getKeyword());
+			sb.append(" ");
+			
+			for(ISelectionPredicate p : _havingFilters)
+			{
+				sb.append(p.toSql());
+				sb.append(" and ");
+			}
+			sb.delete(sb.length()-5, sb.length());
+		}
+		
+		if (_orderFilters.size() > 0)
+		{
+			//sb.append("order by ");
+			sb.append(_orderFilters.get(0).getKeyword());
+			sb.append(" ");
+			
+			for(OrderByFilter f : _orderFilters)
+			{
+				sb.append(f.subSql());
+				sb.append(", ");
+			}
+			sb.delete(sb.length()-2, sb.length());
 		}
 		
 		//sb.append(";");
@@ -241,6 +321,16 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return _refTablesIgnoreFrom;
 	}
 	
+	private LinkedList<OrderByFilter> getOrderFilters()
+	{
+		return _orderFilters;
+	}
+	
+	private LinkedList<ISelectionPredicate> getHavingFilters()
+	{
+		return _havingFilters;
+	}
+	
 	private void addColumn(TableColumn col)
 	{
 		if(!_referencedCols.contains(col)) _referencedCols.add(col);
@@ -256,35 +346,73 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	{
 		_whereFilters.add(p);
 	}
+	
+	private void addOrderFilter(TableColumn col, OrderByFilter.DIRECTION dir)
+	{
+		_orderFilters.add(new OrderByFilter(col, dir));
+	}
+	
+	private void addHavingFilter(ISelectionPredicate p)
+	{
+		_havingFilters.add(p);
+	}
  
 	private LinkedBlockingDeque<ResultCluster> _results = null;
+	private LinkedBlockingDeque<ITable> _rawResults = null;
 	
 	public static <T extends ITable> T proxyInstanceOf(Class<T> tblClass, InvocationHandler proxyClassInstance)
 	{
 		return tblClass.cast( Proxy.newProxyInstance(proxyClassInstance.getClass().getClassLoader(), new Class[] {tblClass}, proxyClassInstance));
 	}
 	
+	private String getActualFullColumnName(String lcTableName, String lcColumnName)
+	{
+		// Aggregate Column
+		if (lcTableName.equals("") || lcTableName == null)
+		{
+			for (TableColumn c : _referencedCols)
+			{
+				if (c.isAliased() && c.getAlias().toLowerCase().equals(lcColumnName))
+				{
+					return c.toSql();
+				}
+			}
+		}
+			
+		// Normal Column
+		for (TableColumn c : _referencedCols)
+		{
+			if (!c.getTable().toSql().toLowerCase().equals(lcTableName)) continue;
+			Boolean aliased = c.isAliased();
+			if ((!c.isAliased() && c.getName().toLowerCase().equals(lcColumnName)) || (c.isAliased() && c.getAlias().toLowerCase().equals(lcTableName)))
+			{
+				return c.toSql();
+			}
+		}
+		
+		return null;
+	}
+	
 	protected void executeQuery()
 	{
 		_results = new LinkedBlockingDeque<ResultCluster>(); 
 		
-		// TODO: make this conform to some sort of global config
 		Connection conn = null;
-		Properties connectionProps = new Properties();
-	    //connectionProps.put("user", "testun");
-	    //connectionProps.put("password", "testpass");
+		Properties connectionProps = DynamicQueryDatabaseConfigurator.getProperties();
 	    
 	    ResultSet rs = null;
 	    
-	    try {
-			conn = DriverManager.getConnection("jdbc:derby:testdb", connectionProps);
+	    try
+	    {
+			conn = DriverManager.getConnection(DynamicQueryDatabaseConfigurator.getDatabaseString(), connectionProps);
 			Statement stmt = conn.createStatement();
 		    
-			//ResultSet rs = null;
 			 rs = stmt.executeQuery(this.toSql());
-		} catch (SQLException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+		}
+	    catch (SQLException e1)
+	    {
+	    	e1.printStackTrace();
+			throw new RuntimeException("[stacktrace above] Issue executing the query '"+this.toSql()+"' -- "+e1.toString());
 		}
 	    
 		try
@@ -296,11 +424,37 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 				
 				for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++)
 				{
-					cols.put(rs.getMetaData().getTableName(i).toLowerCase()+"."+rs.getMetaData().getColumnName(i).toLowerCase(), rs.getObject(i));
+					String tblName = rs.getMetaData().getTableName(i).toLowerCase();
+					String colname = rs.getMetaData().getColumnName(i).toLowerCase();
+					cols.put(getActualFullColumnName(tblName, colname), rs.getObject(i));
 				}
 				
+				//_rawResults.put(proxyInstanceOf(_mainClass, new ResultRowProxy(getReferencedColumns(), cols, _mainClass))); // TODO: fix this -- currently throws NPE
+				
 				String mainClassName = proxyInstanceOf(_mainClass, new TableProxy(_mainClass)).toSql();
-				int mainKey = (Integer) cols.get(mainClassName+"."+"id");
+				int mainKey = -1843243124;
+				try
+				{
+					mainKey = (Integer) cols.get(mainClassName+"."+"id");
+				}
+				catch (NullPointerException ex)
+				{
+					// this is a group by query, so use the hash of the combined value of the group by columns to act as the key
+					StringBuilder sb = new StringBuilder();
+					
+					for (IFilter f : _filters)
+					{
+						if (!(f instanceof GroupByFilter)) continue;
+						for (TableColumn c : ((GroupByFilter)f).getReferencedColumns())
+						{
+							sb.append(cols.get(c.toSql()));
+							sb.append(",");
+						}
+						sb.delete(sb.length()-1, sb.length());
+						
+						mainKey = sb.toString().hashCode();
+					}
+				}
 				if (!groupedRes.containsKey(mainKey))
 				{
 					// create new entry
@@ -323,7 +477,6 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 						else cl.putAsSingleton(inst, proxyInstanceOf(retClass, new ResultRowProxy(getReferencedColumns(), cols, retClass)));
 					}
 				}
-				//groupedRes.put(mainKey, cl); // TODO: figgure out if this is actually needed (shouldn't be, b/c Java passes by ref)
 			}
 			
 			for (ResultCluster rc : groupedRes.values())
@@ -331,33 +484,19 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 				_results.put(rc);
 			}
 		}
-		catch (IllegalArgumentException e)
+		catch (Exception ex)
 		{
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.err.println("Unable to extract query results: "+ex.toString()+" (stack trace below) --");
+			ex.printStackTrace();
 		}
-		catch (SQLException e)
+		try
 		{
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (SecurityException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (NoSuchMethodException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		try {
 			conn.close();
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		}
+		catch (SQLException ex)
+		{
+			System.err.println("Unable to close database connection: "+ex.toString()+" (stack trace below) --");
+			ex.printStackTrace();
 		}
 	}
 	
@@ -367,18 +506,23 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		LinkedBlockingDeque<ITable> res = new LinkedBlockingDeque<ITable>(_results.size());
 		try
 		{
-			for (ResultCluster rc : _results)
+			for (ResultCluster<?> rc : _results)
 			{
 				res.put(proxyInstanceOf(rc.getMainEntryClass(), rc));
 			}
 		}
 		catch (InterruptedException e)
 		{
-			// TODO Auto-generated catch block
+			System.err.println("Unable to retrieve results: results still being processed (stack trace below) -- ");
 			e.printStackTrace();
 		}
 		
 		return res;
+	}
+	
+	protected LinkedBlockingDeque<ITable> getRawResults()
+	{
+		return _rawResults;
 	}
 	
 	public int getCount()

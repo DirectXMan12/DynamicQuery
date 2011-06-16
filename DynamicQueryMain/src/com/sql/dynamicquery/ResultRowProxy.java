@@ -30,7 +30,8 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 		for (TableColumn t : cols)
 		{
 			_rowResults.put(t, null);
-			_tblClasses.add(t.getTable().getActualClass());
+			
+			if (t.getTable() != null) _tblClasses.add(t.getTable().getActualClass());
 		}
 		
 		for (String k : data.keySet())
@@ -66,7 +67,8 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 		String colParts[] = colName.split("\\.");
 		for (TableColumn c : _rowResults.keySet())
 		{
-			if (c.getTable().toSql().equals(colParts[0]) && c.getName().equals(colParts[1])) return c;
+			if (c.isAliased() && c.getAlias().equals(colName)) return c;
+			if (c.getTable() != null && c.getTable().toSql().equals(colParts[0]) && c.getName().equals(colParts[1])) return c;
 		}
 		
 		return null;
@@ -74,6 +76,10 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 	
 	protected void setColumn(String colName, Object val)
 	{
+		if (colName == null || getColumnFromFullName(colName) == null)
+		{
+			throw new RuntimeException("Attempted to add a null column or null column name to result set.  Column gotten from column name '"+colName+"'");
+		}
 		_rowResults.put(getColumnFromFullName(colName), val);
 	}
 	
@@ -88,16 +94,21 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 		return null;
 	}
 	
+	public Object getColumnValue(TableColumn col)
+	{
+		return _rowResults.get(col);
+	}
+	
 	@Override
 	public Object handleInvoke(Object proxy, Method m, String methodName, Object[] args, Class<? extends ITable> primaryClass) throws Exception
 	{
-		if (m.getName().equals("getColumns"))
+		if (methodName.equals("getColumns"))
 		{
-			return new ArrayList<TableColumn>(_rowResults.keySet());
+			return new ArrayList<TableColumn>(_rowResults.keySet()).toArray(new TableColumn[] {});
 		}
-		else if (m.isAnnotationPresent(HasMany.class) && !m.getName().startsWith("get"))
+		else if (m.isAnnotationPresent(HasMany.class) && !methodName.startsWith("get"))
 		{
-			Class<?> resType = _mainClass.getMethod("get"+TableProxy.ucFirstLetter(m.getName())).getReturnType();
+			Class<?> resType = _mainClass.getMethod("get"+TableProxy.ucFirstLetter(methodName)).getReturnType();
 			Class<? extends ITable> colType;
 			if (!resType.isArray()) colType = (Class<? extends ITable>) resType;
 			else colType = (Class<? extends ITable>) Class.forName(resType.getName().replaceFirst("\\[.", "").replaceFirst(";", ""));
@@ -107,21 +118,15 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 			EqualsPredicate w = idCol.eq((Number)_mainClass.getMethod("getId").invoke(proxy));
 			return new DynamicQuery(colType).where(w);
 		}
-		else if (m.isAnnotationPresent(HasMany.class) && m.getName().startsWith("get"))
+		else if (methodName.startsWith("get") && (m.isAnnotationPresent(Column.class) || (methodName.endsWith("Id") && m.isAnnotationPresent(BelongsTo.class)) ))
 		{
-			// TODO: implement -- need to have collected all entries for this unique master entry
-			return null;
+			return _rowResults.get(getColumnFromString(lcFirstLetter(methodName.substring(3))));
 		}
-		else if (m.getName().startsWith("get") && m.isAnnotationPresent(Column.class))
+		else if(methodName.equals("getCount"))
 		{
-			return _rowResults.get(getColumnFromString(lcFirstLetter(m.getName().substring(3))));
+			return (Integer) getColumnValue((TableColumn)args[0]);
 		}
-		else if (m.isAnnotationPresent(BelongsTo.class) && !m.getName().startsWith("get"))
-		{
-			// TODO: implement
-			return null;
-		}
-		else if (m.getName().equals("equals"))
+		else if (methodName.equals("equals"))
 		{
 			if (!(args[0] instanceof ITable)) return false; // is it even a table?
 			
@@ -140,7 +145,7 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 			return true;
 			
 		}
-		else if (m.getName().equals("toString"))
+		else if (methodName.equals("toString"))
 		{
 			StringBuilder sb = new StringBuilder();
 			sb.append("ResultRow(ITable Proxy): [");
@@ -158,7 +163,7 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 			
 			return sb.toString();
 		}
-		else if (m.getName().equals("getActualClass"))
+		else if (methodName.equals("getActualClass"))
 		{
 			return _mainClass;
 		}

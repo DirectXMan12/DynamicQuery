@@ -83,10 +83,12 @@ public class TranslatorTests
 		Iterable<? extends JavaFileObject> compUnits = fileManager.getJavaFileObjects(filenames);
 		ArrayList<File> cp = new ArrayList<File>((Collection<? extends File>) fileManager.getLocation(StandardLocation.CLASS_PATH));
 		cp.add(new File(classpath));
-		try {
+		try
+		{
 			fileManager.setLocation(StandardLocation.CLASS_PATH, cp);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
+		}
+		catch (IOException e)
+		{
 			e.printStackTrace();
 		}
 		DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<JavaFileObject>();

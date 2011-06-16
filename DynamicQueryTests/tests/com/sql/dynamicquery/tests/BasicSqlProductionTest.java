@@ -12,6 +12,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -20,8 +21,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.sql.dynamicquery.DynamicQuery;
+import com.sql.dynamicquery.DynamicQueryDatabaseConfigurator;
 import com.sql.dynamicquery.ITable;
+import com.sql.dynamicquery.OrderByFilter.DIRECTION;
 import com.sql.dynamicquery.TableProxy;
+import com.sun.tools.javac.code.Attribute.Array;
 /**
  * @author DirectXMan12
  *
@@ -73,6 +77,8 @@ public class BasicSqlProductionTest
 			
 			conn.close();
 		}
+		
+		DynamicQueryDatabaseConfigurator.setDatabaseString("jdbc:derby:testdb");
 	}
 	
 	// TODO: figure out a better way to do this
@@ -129,6 +135,39 @@ public class BasicSqlProductionTest
 		assertEquals(((User)res[0]).getApps()[0].getName(), "testapp1");
 	}
 	
+	@Test
+	public void TestOrderBySQLString()
+	{
+		User u = getUser();
+		
+		DynamicQuery q = u.order(u.name(), DIRECTION.asc).project();
+		
+		assertEquals("select users.name, users.id from users order by users.name ASC", q.toSql());
+	}
+	
+	@Test
+	public void TestGroupByHavingSQLString()
+	{
+		App a = getApp();
+		
+		DynamicQuery q = a.group(a.userId()).having(a.userId().in(Arrays.asList(2,3))).project();
+		
+		assertEquals("select apps.userId from apps group by apps.userId having apps.userId in (2,3)", q.toSql());
+	}
+	
+	@Test
+	public void TestGroupByHavingQuery()
+	{
+		App a = getApp();
+		
+		DynamicQuery q = a.group(a.userId()).having(a.userId().in(Arrays.asList(1,2,3))).project(a.userId(), a.userId().count());
+		
+		for(ITable it : q)
+		{
+			System.out.println(it.toString());
+		}
+	}
+	
 	@AfterClass
 	public static void tearDownDB()
 	{
@@ -143,7 +182,7 @@ public class BasicSqlProductionTest
 		}
 		catch (SQLException e)
 		{
-			// TODO Auto-generated catch block
+			System.err.println("Couldn't tear down the database (stack trace below):");
 			e.printStackTrace();
 		}
 		

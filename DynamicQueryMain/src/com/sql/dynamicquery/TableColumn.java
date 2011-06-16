@@ -14,6 +14,7 @@ public class TableColumn implements SQLConvertable
 {
 	private ITable _parentTable;
 	private String _columnName;
+	private String _columnAlias = null;
 	
 	public TableColumn(ITable pt, String name)
 	{
@@ -49,9 +50,64 @@ public class TableColumn implements SQLConvertable
 	{
 		return new InPredicate(this, list);
 	}
+	
+	public String toDefinitionSql()
+	{
+		if (_columnAlias == null) return toSql();
+		else return _parentTable.toSql()+"."+_columnName+" as "+_columnAlias;
+	}
 
 	public String toSql()
 	{
-		return _parentTable.toSql()+"."+_columnName; // TODO: fix this
+		if (_columnAlias == null) return _parentTable.toSql()+"."+_columnName;
+		else return _columnAlias;
 	}
+
+	public void setAlias(String a)
+	{
+		_columnAlias = a;
+	}
+	
+	public String getAlias()
+	{
+		return _columnAlias;
+	}
+	
+	public Boolean isAliased()
+	{
+		return _columnAlias != null;
+	}
+	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#hashCode()
+	 */
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((_columnName == null) ? 0 : _columnName.hashCode());
+		result = prime * result + ((_parentTable == null) ? 0 : _parentTable.hashCode());
+		return result;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj) return true;
+		if (obj == null) return false;
+		if (!(obj instanceof TableColumn)) return false;
+		TableColumn other = (TableColumn) obj;
+		if (_columnName.equals(other._columnName) && _parentTable.equals(other._parentTable)) return true;
+		else return false;
+	}
+
+	public CountColumn count()
+	{
+		return new CountColumn(this);
+	}
+	
 }
