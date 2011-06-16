@@ -89,7 +89,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		{
 			for(Method m : t.getActualClass().getMethods())
 			{
-				if((m.isAnnotationPresent(Column.class) || (m.isAnnotationPresent(BelongsTo.class) && m.getName().endsWith("Id"))) && !m.getName().startsWith("get")) // TODO: fix so includes id columns from BelongsTo
+				if((m.isAnnotationPresent(Column.class) || (m.isAnnotationPresent(BelongsTo.class) && m.getName().endsWith("Id"))) && !m.getName().startsWith("get"))
 				{
 					q.addColumn(new TableColumn(t,m));
 				}
@@ -395,7 +395,8 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	
 	protected void executeQuery()
 	{
-		_results = new LinkedBlockingDeque<ResultCluster>(); 
+		_results = new LinkedBlockingDeque<ResultCluster>();
+		_rawResults = new LinkedBlockingDeque<ITable>();
 		
 		Connection conn = null;
 		Properties connectionProps = DynamicQueryDatabaseConfigurator.getProperties();
@@ -429,7 +430,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 					cols.put(getActualFullColumnName(tblName, colname), rs.getObject(i));
 				}
 				
-				//_rawResults.put(proxyInstanceOf(_mainClass, new ResultRowProxy(getReferencedColumns(), cols, _mainClass))); // TODO: fix this -- currently throws NPE
+				_rawResults.put(proxyInstanceOf(_mainClass, new ResultRowProxy(getReferencedColumns(), cols, _mainClass))); // TODO: fix this -- currently throws NPE
 				
 				String mainClassName = proxyInstanceOf(_mainClass, new TableProxy(_mainClass)).toSql();
 				int mainKey = -1843243124;
@@ -522,6 +523,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	
 	protected LinkedBlockingDeque<ITable> getRawResults()
 	{
+		executeQuery();
 		return _rawResults;
 	}
 	
