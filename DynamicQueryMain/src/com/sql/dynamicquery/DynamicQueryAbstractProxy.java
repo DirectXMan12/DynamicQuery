@@ -55,6 +55,7 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 		return handleInvoke(proxy, m, m.getName(), args, getPrimaryTableClass());
 	}
 	
+	protected String _tableAlias = null;
 	
 	/**
 	 * handle method switching here.  In final else, call super.handleInvoke()
@@ -68,7 +69,13 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 	{
 		if (methodName.equals("toSql"))
 		{
-			return toPlural(primaryClass);
+			if (_tableAlias != null) return _tableAlias;
+			else return toPlural(primaryClass);
+		}
+		else if (methodName.equals("toDefinitionSql"))
+		{
+			if (_tableAlias != null) return toPlural(primaryClass) + " as " + _tableAlias;  // TODO: check adapter config for "as" syntax
+			else return toPlural(primaryClass);
 		}
 		else if (m.isAnnotationPresent(Column.class) && !methodName.startsWith("get"))
 		{
@@ -93,6 +100,12 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 		else if (methodName.equals("group"))
 		{
 			return new DynamicQuery(primaryClass).group((TableColumn) args[0]);
+		}
+		else if (methodName.equals("as"))
+		{
+			DynamicQueryAbstractProxy copyThis = (DynamicQueryAbstractProxy) this.clone();
+			copyThis._tableAlias = (String) args[0];
+			return getProxiedInstanceOf(getPrimaryTableClass(), copyThis);
 		}
 		else
 		{
@@ -139,6 +152,28 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 		}
 	}
 	
+	public DynamicQueryAbstractProxy()
+	{
+		
+	}
+	
+	@Override
+	protected Object clone() throws CloneNotSupportedException
+	{
+			try
+			{
+				DynamicQueryAbstractProxy res = this.getClass().newInstance();
+				res._tableAlias = this._tableAlias;
+				return copyOf(res);
+			}
+			catch (Exception ex)
+			{
+				throw new CloneNotSupportedException();
+			}
+	}
+	
+	abstract Object copyOf(DynamicQueryAbstractProxy t);
+	
 	protected <T extends ITable> T getProxiedInstanceOf(Class<T> proxiedClass, InvocationHandler handlerInstance)
 	{
 		return proxiedClass.cast(Proxy.newProxyInstance(handlerInstance.getClass().getClassLoader(), new Class[] {proxiedClass}, handlerInstance));
@@ -149,12 +184,19 @@ public abstract class DynamicQueryAbstractProxy implements InvocationHandler
 		return new TableColumn((ITable)proxy, primaryClass.getMethod(m.getName()));
 	}
 	
-	public boolean isSameTable(Object o)
+	public boolean isSameSourceTable(Object o)
 	{
 		Class<? extends ITable> p = getPrimaryTableClass();
 		if (p == o) return true;
 		if (o instanceof ITable) return p.equals(((ITable)o).getActualClass());
 		return p.equals(o.getClass());
+	}
+	
+	public boolean isSameTable(Object o, ITable proxy)
+	{
+		if (o instanceof ITable) return isSameSourceTable(o) && ((ITable)o).toSql().equals(proxy.toSql());
+		else if (o instanceof Class) return isSameSourceTable(o);
+		else return false;
 	}
 	
 	public int BasicITableHashCode()

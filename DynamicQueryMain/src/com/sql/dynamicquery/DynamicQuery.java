@@ -296,6 +296,12 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 		return sb.toString();
 	}
 	
+	@Override
+	public String toDefinitionSql()
+	{
+		return this.toSql();
+	}
+	
 	private LinkedHashSet<ITable> getReferencedTables()
 	{
 		return _referencedTables;
@@ -430,7 +436,7 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 					cols.put(getActualFullColumnName(tblName, colname), rs.getObject(i));
 				}
 				
-				_rawResults.put(proxyInstanceOf(_mainClass, new ResultRowProxy(getReferencedColumns(), cols, _mainClass))); // TODO: fix this -- currently throws NPE
+				_rawResults.put(proxyInstanceOf(_mainClass, new ResultRowProxy(getReferencedColumns(), cols, _mainClass)));
 				
 				String mainClassName = proxyInstanceOf(_mainClass, new TableProxy(_mainClass)).toSql();
 				int mainKey = -1843243124;
@@ -617,5 +623,4 @@ public class DynamicQuery implements SQLConvertable, Collection<ITable>
 	{
 		throw new UnsupportedOperationException("Can't remove from a result set");
 	}
-	
 }

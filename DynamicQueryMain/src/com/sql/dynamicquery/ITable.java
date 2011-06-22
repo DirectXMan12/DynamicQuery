@@ -26,6 +26,8 @@ public interface ITable extends SQLConvertable
 	
 	public DynamicQuery project(TableColumn... cols);
 	
+	public ITable as(String alias);
+	
 	public Integer getCount(TableColumn col);
 	
 	public Class getActualClass();

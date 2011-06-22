@@ -53,4 +53,10 @@ public class GroupByFilter implements IFilter
 			return sb.toString();
 		}
 	}
+	
+	@Override
+	public String toDefinitionSql()
+	{
+		return this.toSql();
+	}
 }

@@ -22,6 +22,19 @@ public class TableProxy extends DynamicQueryAbstractProxy implements InvocationH
 		_tblClass = tc;
 	}
 	
+	public TableProxy()
+	{
+		
+	}
+	
+	@Override
+	Object copyOf(DynamicQueryAbstractProxy t)
+	{
+		TableProxy res = (TableProxy) t;
+		res._tblClass = this._tblClass;
+		return res;
+	}
+	
 	
 	@Override
 	public Object handleInvoke(Object proxy, Method m, String methodName, Object[] args, Class<? extends ITable> primaryClass) throws Exception
@@ -55,7 +68,7 @@ public class TableProxy extends DynamicQueryAbstractProxy implements InvocationH
 		}
 		else if (m.getName().equals("equals"))
 		{
-			return isSameTable(args[0]);
+			return isSameTable(args[0], (ITable) proxy);
 		}
 		else if (m.getName().equals("hashCode"))
 		{

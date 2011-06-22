@@ -31,6 +31,12 @@ public class JoinFilter implements IFilter
 	@Override
 	public String toSql()
 	{
-		return String.format("join %s on %s", _newTable.toSql(), _onPart.toSql());
+		return String.format("join %s on %s", _newTable.toDefinitionSql(), _onPart.toSql());
+	}
+	
+	@Override
+	public String toDefinitionSql()
+	{
+		return this.toSql();
 	}
 }

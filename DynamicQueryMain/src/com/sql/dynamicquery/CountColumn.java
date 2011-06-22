@@ -28,6 +28,13 @@ public class CountColumn extends TableColumn implements IAggregateColumn
 	}
 	
 	@Override
+	protected void copyAttrsTo(TableColumn tc)
+	{
+		super.copyAttrsTo(tc);
+		((CountColumn)tc)._countCol = this._countCol;
+	}
+	
+	@Override
 	public String toDefinitionSql()
 	{
 		return "count("+_countCol.toSql()+") as "+getAlias();

@@ -3,8 +3,11 @@
  */
 package com.sql.dynamicquery;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
+
+import com.sun.tools.javac.util.Name.Table;
 
 /**
  * @author DirectXMan12
@@ -78,6 +81,29 @@ public class TableColumn implements SQLConvertable
 		return _columnAlias != null;
 	}
 	
+	public TableColumn as(String alias)
+	{
+		TableColumn res = (TableColumn) this.clone();
+		res.setAlias(alias);
+		return res;
+	}
+
+	protected void copyAttrsTo(TableColumn tc)
+	{
+		tc._columnName = this._columnName;
+		tc._columnAlias = this._columnAlias;
+		tc._parentTable = this._parentTable;
+	}
+	
+	@Override
+	protected Object clone()
+	{
+		Object res = this.getClass().cast(new Object());
+		this.copyAttrsTo((TableColumn) res);
+		return res;
+		
+	}
+	
 	/* (non-Javadoc)
 	 * @see java.lang.Object#hashCode()
 	 */
@@ -109,5 +135,4 @@ public class TableColumn implements SQLConvertable
 	{
 		return new CountColumn(this);
 	}
-	
 }

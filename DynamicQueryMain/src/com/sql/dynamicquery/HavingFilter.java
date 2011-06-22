@@ -36,5 +36,10 @@ public class HavingFilter implements IFilter, IGroupedClause
 	{
 		return "having";
 	}
-
+	
+	@Override
+	public String toDefinitionSql()
+	{
+		return this.toSql();
+	}
 }

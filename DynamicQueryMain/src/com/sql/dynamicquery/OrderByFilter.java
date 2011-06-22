@@ -36,5 +36,11 @@ public class OrderByFilter implements IFilter, IGroupedClause
 	{
 		return "order by";
 	}
+	
+	@Override
+	public String toDefinitionSql()
+	{
+		return this.toSql();
+	}
 
 }

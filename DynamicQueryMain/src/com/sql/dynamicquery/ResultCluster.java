@@ -10,6 +10,7 @@ import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -26,6 +27,22 @@ public class ResultCluster<T extends ITable> extends DynamicQueryAbstractProxy i
 	private Set<ITable> _referencedTables;
 	private T _mainEntry;
 	private HashMap<ITable, Object> _otherValues;
+	
+	@Override
+	Object copyOf(DynamicQueryAbstractProxy t)
+	{
+		ResultCluster<T> res = (ResultCluster<T>) t;
+		res._mainEntry = _mainEntry;
+		res._referencedTables = new LinkedHashSet<ITable>(_referencedTables);
+		res._otherValues = (HashMap<ITable, Object>) _otherValues.clone();
+		
+		return res;
+	}
+	
+	public ResultCluster()
+	{
+		
+	}
 	
 	/**
 	 * 

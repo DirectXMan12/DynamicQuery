@@ -23,6 +23,22 @@ public class ResultRowProxy extends DynamicQueryAbstractProxy implements Invocat
 	private HashMap<TableColumn, Object> _rowResults;
 	private Class<? extends ITable> _mainClass;
 	
+	@Override
+	Object copyOf(DynamicQueryAbstractProxy t)
+	{
+		ResultRowProxy res = (ResultRowProxy) t;
+		res._mainClass = this._mainClass;
+		res._rowResults = (HashMap<TableColumn, Object>) this._rowResults.clone();
+		res._tblClasses = new LinkedHashSet<Class<? extends ITable>>(_tblClasses);
+		
+		return res;
+	}
+	
+	public ResultRowProxy()
+	{
+		
+	}
+	
 	public ResultRowProxy(Set<TableColumn> cols, HashMap<String, Object> data, Class<? extends ITable> mainClass)
 	{
 		_tblClasses = new LinkedHashSet<Class<? extends ITable>>();

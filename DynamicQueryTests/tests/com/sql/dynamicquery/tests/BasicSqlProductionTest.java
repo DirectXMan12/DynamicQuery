@@ -168,6 +168,17 @@ public class BasicSqlProductionTest
 		}
 	}
 	
+	@Test
+	public void TestTableAliasingSQLString()
+	{
+		User u = getUser();
+		User ua = (User) u.as("awesomeUsers");
+		
+		DynamicQuery q = u.join(ua).on(u.name().eq(ua.name())).project();
+		
+		assertEquals("select users.name, users.id, awesomeUsers.name, awesomeUsers.id from users join users as awesomeUsers on users.name = awesomeUsers.name ", q.toSql());
+	}
+	
 	@AfterClass
 	public static void tearDownDB()
 	{

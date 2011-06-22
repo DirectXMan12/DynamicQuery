@@ -27,6 +27,12 @@ public class WhereFilter implements IFilter, IGroupedClause
 	{
 		return _pred;
 	}
+	
+	@Override
+	public String toDefinitionSql()
+	{
+		return this.toSql();
+	}
 
 	@Override
 	public String getKeyword()

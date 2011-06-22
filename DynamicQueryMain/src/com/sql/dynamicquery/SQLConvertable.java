@@ -10,4 +10,6 @@ package com.sql.dynamicquery;
 public interface SQLConvertable
 {
 	public String toSql();
+
+	public String toDefinitionSql();
 }
